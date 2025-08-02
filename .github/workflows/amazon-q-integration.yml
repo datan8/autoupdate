@@ -1,0 +1,73 @@
+name: Amazon Q Auto Development Trigger
+
+on:
+  issues:
+    types: [opened, labeled, edited]
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  trigger-amazon-q:
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'issues' && 
+       contains(github.event.issue.labels.*.name, 'amazon-q') && 
+       contains(github.event.issue.labels.*.name, 'approved')) ||
+      (github.event_name == 'issue_comment' && 
+       contains(github.event.issue.labels.*.name, 'amazon-q') &&
+       contains(github.event.comment.body, '@amazon-q'))
+    
+    steps:
+      - name: Add Amazon Q Ready Label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            
+            // Add the amazon-q-ready label
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number,
+              labels: ['amazon-q-ready']
+            });
+            
+            // Add a comment to ensure Amazon Q sees the request
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body: `🤖 **Amazon Q Development Request**
+
+This issue has been approved and is ready for automated development.
+
+**Instructions for Amazon Q:**
+- Please read the issue description carefully
+- Implement the requested changes following the technical guidelines
+- Create a pull request with your implementation
+- Link the PR back to this issue
+
+**Technical Requirements:**
+- Use modern web technologies (HTML5, CSS3, JavaScript)
+- Ensure mobile responsiveness and accessibility
+- Follow existing code patterns
+- Test thoroughly before submitting
+
+@amazon-q Please proceed with implementation.
+
+---
+*Automated trigger from GitHub Actions on ${new Date().toISOString()}*`
+            });
+
+      - name: Log Trigger Event
+        run: |
+          echo "Amazon Q triggered for issue #${{ github.event.issue.number }}"
+          echo "Issue title: ${{ github.event.issue.title }}"
+          echo "Labels: ${{ join(github.event.issue.labels.*.name, ', ') }}"
+          echo "Triggered at: $(date)"
